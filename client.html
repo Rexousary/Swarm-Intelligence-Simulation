@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swarm Intelligence | Live Telemetry</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Prevents the canvas from looking blurry on high-res screens */
+        canvas { image-rendering: pixelated; }
+        /* Custom scrollbar for a polished look */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 font-sans min-h-screen flex flex-col selection:bg-indigo-500/30">
+
+    <header class="bg-slate-900 border-b border-slate-800 p-4 shadow-md flex justify-between items-center z-20">
+        <div class="flex items-center gap-4">
+            <h1 class="text-2xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">
+                SWARM<span class="text-slate-100">ENGINE</span>
+            </h1>
+            <span class="hidden md:inline-block px-2 py-1 bg-slate-800 text-slate-400 text-xs font-mono uppercase rounded border border-slate-700">
+                Admin Console
+            </span>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-slate-950 rounded-md border border-slate-800 shadow-inner">
+                <span id="status-indicator" class="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
+                <span id="game-status" class="text-sm font-mono text-slate-400 uppercase tracking-widest">Offline</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow p-4 md:p-6 flex flex-col lg:flex-row gap-6 justify-center items-start max-w-[1600px] mx-auto w-full">
+        
+        <div class="flex-shrink-0 w-full lg:w-auto bg-slate-900 rounded-xl p-2 border border-slate-800 shadow-2xl relative group">
+            <div class="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-indigo-500/50 rounded-tl-xl -translate-x-1 -translate-y-1"></div>
+            <div class="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-purple-500/50 rounded-br-xl translate-x-1 translate-y-1"></div>
+            
+            <div class="bg-slate-950 rounded-lg overflow-hidden border border-slate-800/50">
+                <canvas id="game-canvas" width="800" height="600" class="block w-full max-w-[800px] h-auto"></canvas>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-6 w-full max-w-md">
+            
+            <div class="bg-slate-900 rounded-xl border border-slate-800 p-5 shadow-lg relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl"></div>
+                
+                <h2 class="text-xs text-slate-400 uppercase tracking-widest mb-4 font-bold border-b border-slate-800/80 pb-2 flex items-center justify-between">
+                    Live Telemetry
+                    <span id="tick" class="text-indigo-400 font-mono text-sm bg-indigo-500/10 px-2 py-0.5 rounded">T-0</span>
+                </h2>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-950 p-4 rounded-lg border border-slate-800/50 hover:border-indigo-500/30 transition-colors">
+                        <span class="block text-[10px] text-slate-500 uppercase tracking-widest mb-1">Alpha Score</span>
+                        <span id="alpha-score" class="text-3xl font-black text-indigo-400 font-mono">0</span>
+                    </div>
+                    <div class="bg-slate-950 p-4 rounded-lg border border-slate-800/50 hover:border-emerald-500/30 transition-colors">
+                        <span class="block text-[10px] text-slate-500 uppercase tracking-widest mb-1">Beta Score</span>
+                        <span id="beta-score" class="text-3xl font-black text-emerald-400 font-mono">0</span>
+                    </div>
+                    <div class="col-span-2 bg-slate-950 p-4 rounded-lg border border-slate-800/50 flex items-center justify-between">
+                        <span class="block text-[10px] text-slate-500 uppercase tracking-widest">Combat Phase</span>
+                        <span id="phase" class="text-sm font-bold text-amber-400 uppercase tracking-wider bg-amber-400/10 px-3 py-1 rounded border border-amber-400/20">Awaiting</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 rounded-xl border border-slate-800 p-5 shadow-lg">
+                <h2 class="text-xs text-slate-400 uppercase tracking-widest mb-4 font-bold border-b border-slate-800/80 pb-2">
+                    Mission Control
+                </h2>
+                
+                <div class="flex flex-col gap-3 mb-6">
+                    <button onclick="createBattle()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 px-4 rounded-lg font-bold tracking-wide transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] hover:shadow-[0_0_20px_rgba(79,70,229,0.5)] active:scale-[0.98]">
+                        INITIALIZE NEW BATTLE
+                    </button>
+                    <button onclick="togglePause()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 px-4 rounded-lg font-semibold tracking-wide transition-all border border-slate-700 active:scale-[0.98]">
+                        Halt / Resume Simulation
+                    </button>
+                </div>
+
+                <h3 class="text-[10px] text-slate-500 uppercase tracking-widest mb-3 font-bold">Manual Agent Overrides</h3>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="useAbility(0)" class="bg-slate-950 hover:bg-slate-800 text-slate-300 py-3 rounded border border-slate-800 hover:border-indigo-500/50 font-mono text-xs font-bold transition-all active:scale-95 flex flex-col items-center gap-1 group">
+                        <span class="text-slate-500 group-hover:text-indigo-400">1</span>
+                        Abil_01
+                    </button>
+                    <button onclick="useAbility(1)" class="bg-slate-950 hover:bg-slate-800 text-slate-300 py-3 rounded border border-slate-800 hover:border-indigo-500/50 font-mono text-xs font-bold transition-all active:scale-95 flex flex-col items-center gap-1 group">
+                        <span class="text-slate-500 group-hover:text-indigo-400">2</span>
+                        Abil_02
+                    </button>
+                    <button onclick="useAbility(2)" class="bg-slate-950 hover:bg-slate-800 text-slate-300 py-3 rounded border border-slate-800 hover:border-indigo-500/50 font-mono text-xs font-bold transition-all active:scale-95 flex flex-col items-center gap-1 group">
+                        <span class="text-slate-500 group-hover:text-indigo-400">3</span>
+                        Abil_03
+                    </button>
+                </div>
+            </div>
+            
+            <div class="text-xs text-slate-500 font-mono leading-relaxed bg-slate-900/50 p-4 rounded-lg border border-slate-800/30">
+                > WASD or Arrow Keys to manually move.<br>
+                > Keys 1, 2, 3 to trigger abilities.<br>
+                > Awaiting websocket stream...
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        let ws = null;
+        let battleId = null;
+        let gameState = null;
+        let playerId = null;
+
+        const ELEMENT_COLORS = {
+            fire: '#ef4444', water: '#3b82f6', thunder: '#eab308', earth: '#84cc16',
+            grass: '#22c55e', sand: '#f59e0b', flying: '#38bdf8', dark: '#8b5cf6'
+        };
+
+        async function createBattle() {
+            const response = await fetch('http://localhost:8000/battle/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({num_mobs: 15})
+            });
+            const data = await response.json();
+            battleId = data.battle_id;
+            connectWebSocket();
+        }
+
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://localhost:8000/battle/${battleId}/connect`);
+            
+            ws.onopen = () => {
+                const statusText = document.getElementById('game-status');
+                const indicator = document.getElementById('status-indicator');
+                
+                statusText.textContent = 'CONNECTED';
+                statusText.classList.replace('text-slate-400', 'text-emerald-400');
+                
+                indicator.classList.replace('bg-red-500', 'bg-emerald-500');
+                indicator.classList.replace('shadow-[0_0_8px_rgba(239,68,68,0.8)]', 'shadow-[0_0_8px_rgba(16,185,129,0.8)]');
+                indicator.classList.remove('animate-pulse');
+            };
+            
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                
+                if (message.type === 'connected') {
+                    playerId = message.player_id;
+                }
+                else if (message.type === 'game_state') {
+                    gameState = message.data;
+                    updateUI();
+                    render();
+                }
+                else if (message.type === 'battle_end') {
+                    document.getElementById('game-status').textContent = `Winner: ${message.winner}`;
+                    document.getElementById('game-status').classList.replace('text-emerald-400', 'text-amber-400');
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                document.getElementById('game-status').textContent = 'CONNECTION ERROR';
+            };
+        }
+
+        function updateUI() {
+            if (!gameState) return;
+            document.getElementById('tick').textContent = `T-${gameState.tick || 0}`;
+            document.getElementById('alpha-score').textContent = (gameState.alpha_score || 0).toFixed(1);
+            document.getElementById('beta-score').textContent = (gameState.beta_score || 0).toFixed(1);
+            document.getElementById('phase').textContent = gameState.phase || 'early';
+        }
+
+        function render() {
+            if (!gameState) return;
+            
+            // Clear Background
+            ctx.fillStyle = '#020617'; // slate-950
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw Grid Lines (for that tactical feel)
+            ctx.strokeStyle = '#1e293b'; // slate-800
+            ctx.lineWidth = 1;
+            for(let x = 0; x <= canvas.width; x += 50) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for(let y = 0; y <= canvas.height; y += 50) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // Draw zones
+            ctx.strokeStyle = 'rgba(79, 70, 229, 0.15)'; // indigo
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 12; i++) {
+                const x = (i % 4) * 200 + 100;
+                const y = Math.floor(i / 4) * 200 + 100;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, 50, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(79, 70, 229, 0.05)';
+                ctx.fill();
+                ctx.stroke();
+            }
+            
+            // Draw agents & mobs
+            if (gameState.mobs) gameState.mobs.forEach(mob => drawMob(mob));
+            if (gameState.beta_agents) gameState.beta_agents.forEach(agent => drawAgent(agent, ELEMENT_COLORS[agent.element] || '#fff'));
+            if (gameState.alpha_agents) gameState.alpha_agents.forEach(agent => drawAgent(agent, ELEMENT_COLORS[agent.element] || '#fff', true));
+        }
+
+        function drawMob(mob) {
+            ctx.fillStyle = '#475569'; // slate-600
+            ctx.beginPath();
+            ctx.arc(mob.x, mob.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+        function drawAgent(agent, color, isAlpha = false) {
+            if (!agent.alive) return;
+            
+            // Glow effect
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = color;
+            
+            // Agent body
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(agent.x, agent.y, 14, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Reset shadow for UI
+            ctx.shadowBlur = 0;
+            
+            // Team indicator ring
+            ctx.strokeStyle = isAlpha ? '#818cf8' : '#34d399';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(agent.x, agent.y, 18, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // HP bar background
+            const hpWidth = 36;
+            const hpHeight = 5;
+            ctx.fillStyle = '#0f172a'; // slate-900
+            ctx.fillRect(agent.x - hpWidth/2, agent.y - 30, hpWidth, hpHeight);
+            
+            // HP bar fill
+            ctx.fillStyle = agent.hp_pct > 0.5 ? '#22c55e' : agent.hp_pct > 0.25 ? '#eab308' : '#ef4444';
+            ctx.fillRect(agent.x - hpWidth/2, agent.y - 30, hpWidth * agent.hp_pct, hpHeight);
+            
+            // HP bar border
+            ctx.strokeStyle = '#334155'; // slate-700
+            ctx.lineWidth = 1;
+            ctx.strokeRect(agent.x - hpWidth/2, agent.y - 30, hpWidth, hpHeight);
+            
+            // Name tag
+            ctx.fillStyle = '#f8fafc'; // slate-50
+            ctx.font = 'bold 11px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(agent.name.substring(0, 8), agent.x, agent.y + 32);
+        }
+
+        function sendCommand(command) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(command));
+            }
+        }
+
+        function useAbility(idx) {
+            sendCommand({type: 'ability', ability_idx: idx});
+        }
+
+        async function togglePause() {
+            if (!battleId) return;
+            await fetch(`http://localhost:8000/battle/${battleId}/pause`, {method: 'POST'});
+        }
+
+        document.addEventListener('keydown', (e) => {
+            const moveSpeed = 1;
+            switch(e.key) {
+                case 'w': case 'ArrowUp':    sendCommand({type: 'move', dx: 0, dy: -moveSpeed}); break;
+                case 's': case 'ArrowDown':  sendCommand({type: 'move', dx: 0, dy: moveSpeed}); break;
+                case 'a': case 'ArrowLeft':  sendCommand({type: 'move', dx: -moveSpeed, dy: 0}); break;
+                case 'd': case 'ArrowRight': sendCommand({type: 'move', dx: moveSpeed, dy: 0}); break;
+                case '1': useAbility(0); break;
+                case '2': useAbility(1); break;
+                case '3': useAbility(2); break;
+            }
+        });
+    </script>
+</body>
+</html>
